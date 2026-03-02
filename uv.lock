@@ -437,7 +437,7 @@ requires-dist = [
     { name = "aiohttp", specifier = ">=3.11.8" },
     { name = "alembic" },
     { name = "av", specifier = ">=14.2.0" },
-    { name = "comfy-aimdo", specifier = ">=0.2.3" },
+    { name = "comfy-aimdo", specifier = ">=0.2.4" },
     { name = "comfy-kitchen", specifier = ">=0.2.7" },
     { name = "comfyui-embedded-docs", specifier = "==0.4.3" },
     { name = "comfyui-frontend-package", specifier = "==1.39.19" },
