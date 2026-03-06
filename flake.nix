@@ -24,6 +24,9 @@
           python313
           git
           ffmpeg
+          aria2
+          oxipng
+          mozjpeg
 
           cmake
           ninja
