@@ -3,8 +3,8 @@ name = "comfyui-env"
 version = "0.1.0"
 requires-python = ">=3.13"
 dependencies = [
-  "comfyui-frontend-package==1.39.19",
-  "comfyui-workflow-templates==0.9.11",
+  "comfyui-frontend-package==1.41.18",
+  "comfyui-workflow-templates==0.9.21",
   "comfyui-embedded-docs==0.4.3",
   "torch",
   "torchsde",
@@ -26,8 +26,8 @@ dependencies = [
   "alembic",
   "SQLAlchemy",
   "av>=14.2.0",
-  "comfy-kitchen>=0.2.7",
-  "comfy-aimdo>=0.2.7",
+  "comfy-kitchen>=0.2.8",
+  "comfy-aimdo>=0.2.10",
   "requests",
   "kornia>=0.7.1",
   "spandrel",
@@ -36,11 +36,13 @@ dependencies = [
   "PyOpenGL",
   "glfw",
   "simpleeval>=1.0.0",
+  "blake3>=1.0.8",
+  "filelock>=3.25.0",
 ]
 
 [project.optional-dependencies]
 manager = [
-  "comfyui_manager==4.1b1",
+  "comfyui-manager==4.1b2",
 ]
 
 [[tool.uv.index]]
