@@ -13,7 +13,7 @@ ComfyUI Desktop does not ship Linux builds. This flake provides a reproducible, 
 
 ## Tested On
 
-- NixOS 26.05.20260302.cf59864 (Yarara)
+- NixOS 26.05.20260318.b40629e (Yarara)
 - NVIDIA RTX 4070
 
 ## Prerequisites
