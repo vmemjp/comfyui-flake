@@ -22,6 +22,7 @@
           python
           git
           ffmpeg
+          nodejs_22
           aria2
           oxipng
           mozjpeg
@@ -204,6 +205,61 @@
               $ENABLE_MANAGER_ARGS "$@"
           '';
         };
+
+        # --- Container (Podman) ---
+
+        comfyui-container-build = pkgs.writeShellApplication {
+          name = "comfyui-container-build";
+          runtimeInputs = [ pkgs.podman pkgs.python3 ];
+          text = ''
+            set -euo pipefail
+
+            FLAKE_DIR="''${FLAKE_DIR:-$PWD}"
+
+            # Extract pinned commit from flake.lock
+            COMMIT=$(python3 -c "import json; d=json.load(open('$FLAKE_DIR/flake.lock')); print(d['nodes']['comfyui-src']['locked']['rev'])")
+
+            echo "Building container for ComfyUI commit: $COMMIT"
+
+            podman build \
+              --build-arg "COMFYUI_COMMIT=$COMMIT" \
+              -t comfyui:latest \
+              -f "$FLAKE_DIR/Containerfile" \
+              "$FLAKE_DIR"
+          '';
+        };
+
+        comfyui-container-run = pkgs.writeShellApplication {
+          name = "comfyui-pod";
+          runtimeInputs = [ pkgs.podman ];
+          text = ''
+            set -euo pipefail
+
+            FLAKE_DIR="''${FLAKE_DIR:-$PWD}"
+            STATE_DIR="''${COMFYUI_STATE_DIR:-$FLAKE_DIR/.comfyui-state}"
+            PORT="''${COMFYUI_PORT:-8188}"
+
+            # Ensure data dirs exist
+            for d in models custom_nodes input output user; do
+              mkdir -p "$STATE_DIR/$d"
+            done
+
+            echo "Starting ComfyUI container on port $PORT..."
+
+            exec podman run --rm -it \
+              --name comfyui \
+              --device nvidia.com/gpu=all \
+              --security-opt=label=disable \
+              -p "127.0.0.1:$PORT:8188" \
+              -v "$STATE_DIR/models:/data/models:ro" \
+              -v "$STATE_DIR/custom_nodes:/data/custom_nodes:ro" \
+              -v "$STATE_DIR/input:/data/input:rw" \
+              -v "$STATE_DIR/output:/data/output:rw" \
+              -v "$STATE_DIR/user:/data/user:rw" \
+              comfyui:latest \
+              "$@"
+          '';
+        };
       in
       {
         apps.default = {
@@ -258,15 +314,20 @@
         };
 
         devShells.default = pkgs.mkShell {
-          packages = basePkgs ++ [ comfyui-init comfyui-update comfyui-run ];
+          packages = basePkgs ++ [
+            comfyui-init comfyui-update comfyui-run
+            comfyui-container-build comfyui-container-run
+          ];
           shellHook = ''
             export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
             export FLAKE_DIR="$PWD"
             export UV_CACHE_DIR="''${UV_CACHE_DIR:-$FLAKE_DIR/.cache/uv}"
             echo "ComfyUI dev shell"
-            echo "  comfyui-init   — first-time setup"
-            echo "  comfyui-update — update source"
-            echo "  comfyui        — start"
+            echo "  comfyui-init            — first-time setup"
+            echo "  comfyui-update          — update source"
+            echo "  comfyui                 — start (native)"
+            echo "  comfyui-container-build — build container image"
+            echo "  comfyui-pod             — start (container, isolated)"
           '';
         };
       });

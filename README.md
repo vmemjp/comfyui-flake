@@ -54,6 +54,21 @@ ComfyUI starts at `http://127.0.0.1:8188` by default.
 | `comfyui-init` | First-time setup: copy source, create symlinks, `uv sync` dependencies (dev shell) |
 | `comfyui-update` | Update ComfyUI source and re-sync dependencies (user data is untouched) (dev shell) |
 | `comfyui` | Start ComfyUI (dev shell) |
+| `comfyui-container-build` | Build the Podman container image (dev shell) |
+| `comfyui-pod` | Start ComfyUI in an isolated Podman container (dev shell) |
+
+## Container Mode (Podman)
+
+Run ComfyUI in an isolated container for supply-chain attack mitigation. The container has no access to your SSH keys, cloud credentials, or other host secrets.
+
+```bash
+# Prerequisites: hardware.nvidia-container-toolkit.enable = true; in NixOS config
+
+comfyui-container-build   # build image (once, or after update)
+comfyui-pod               # start in container
+```
+
+Models are mounted read-only, input/output/user are read-write. API and UI are available at `http://127.0.0.1:8188`.
 
 ## Updating ComfyUI
 
