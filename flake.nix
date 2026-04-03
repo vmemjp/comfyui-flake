@@ -83,6 +83,7 @@
               --name comfyui \
               --device nvidia.com/gpu=all \
               --security-opt=label=disable \
+              --shm-size=2g \
               -p "$LISTEN:$PORT:8188" \
               -v "$STATE_DIR/models:/data/models:ro" \
               -v "$STATE_DIR/custom_nodes:/data/custom_nodes:ro" \

@@ -1,11 +1,11 @@
-FROM docker.io/nvidia/cuda:13.0.0-runtime-ubuntu24.04
+FROM docker.io/ubuntu:24.04
 
 ARG COMFYUI_COMMIT
 ARG DEBIAN_FRONTEND=noninteractive
 
-# System dependencies (Python managed by uv, not apt)
+# System dependencies only — no CUDA (PyTorch bundles its own, host driver via CDI)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git ffmpeg aria2 curl \
+    ca-certificates git ffmpeg aria2 curl \
     cmake ninja-build pkg-config gcc g++ \
     libgl1-mesa-dev libglib2.0-0 libssl-dev libffi-dev zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -20,7 +20,7 @@ RUN uv python install 3.13
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
 
-# Install Python dependencies (locked)
+# Install Python dependencies (locked, PyTorch cu130 wheels include CUDA runtime)
 RUN uv sync --frozen --python 3.13 --extra manager
 
 # Clone ComfyUI source at pinned commit
