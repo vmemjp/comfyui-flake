@@ -130,22 +130,22 @@ if [[ ${#to_update[@]} -gt 0 ]]; then
   echo "Update: ${to_update[*]}"
 fi
 
-# --- Apply ---
+# --- Apply (metadata only — no install on host) ---
 GROUP_FLAG=""
 if $MANAGER_MODE; then
   GROUP_FLAG="--optional manager"
 fi
 
 if [[ ${#to_remove[@]} -gt 0 ]]; then
-  uv remove $GROUP_FLAG "${to_remove[@]}"
+  uv remove --no-sync $GROUP_FLAG "${to_remove[@]}"
 fi
 
 if [[ ${#to_add[@]} -gt 0 ]]; then
-  uv add $GROUP_FLAG "${to_add[@]}"
+  uv add --no-sync $GROUP_FLAG "${to_add[@]}"
 fi
 
 if [[ ${#to_update[@]} -gt 0 ]]; then
-  uv add $GROUP_FLAG "${to_update[@]}"
+  uv add --no-sync $GROUP_FLAG "${to_update[@]}"
 fi
 
-echo "Done. Run 'uv sync' to install."
+echo "Done. Rebuild container: comfyui-container-build"

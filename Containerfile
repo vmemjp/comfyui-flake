@@ -3,23 +3,25 @@ FROM docker.io/nvidia/cuda:13.0.0-runtime-ubuntu24.04
 ARG COMFYUI_COMMIT
 ARG DEBIAN_FRONTEND=noninteractive
 
-# System dependencies
+# System dependencies (Python managed by uv, not apt)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3.13 python3.13-venv python3.13-dev \
-    git ffmpeg aria2 \
+    git ffmpeg aria2 curl \
     cmake ninja-build pkg-config gcc g++ \
-    libgl1-mesa-glx libglib2.0-0 libssl-dev libffi-dev zlib1g-dev \
+    libgl1-mesa-dev libglib2.0-0 libssl-dev libffi-dev zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# Let uv manage Python 3.13
+RUN uv python install 3.13
 
 # Project files for dependency installation
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
 
 # Install Python dependencies (locked)
-RUN uv sync --frozen --python python3.13 --extra manager
+RUN uv sync --frozen --python 3.13 --extra manager
 
 # Clone ComfyUI source at pinned commit
 RUN git clone --depth 1 https://github.com/Comfy-Org/ComfyUI.git /app/src \
