@@ -51,14 +51,21 @@
             FLAKE_DIR="''${FLAKE_DIR:-$PWD}"
 
             COMMIT=$(python3 -c "import json; d=json.load(open('$FLAKE_DIR/flake.lock')); print(d['nodes']['comfyui-src']['locked']['rev'])")
+            SHORT="''${COMMIT:0:7}"
 
             echo "Building container for ComfyUI commit: $COMMIT"
 
             podman build \
               --build-arg "COMFYUI_COMMIT=$COMMIT" \
+              -t "comfyui:$SHORT" \
               -t comfyui:latest \
               -f "$FLAKE_DIR/Containerfile" \
               "$FLAKE_DIR"
+
+            echo ""
+            echo "Tagged: comfyui:$SHORT and comfyui:latest"
+            echo "List:   podman images comfyui"
+            echo "Roll back: COMFYUI_TAG=<tag> comfyui-pod"
           '';
         };
 
@@ -72,12 +79,13 @@
             STATE_DIR="''${COMFYUI_STATE_DIR:-$FLAKE_DIR/.comfyui-state}"
             PORT="''${COMFYUI_PORT:-8188}"
             LISTEN="''${COMFYUI_LISTEN:-127.0.0.1}"
+            TAG="''${COMFYUI_TAG:-latest}"
 
             for d in models custom_nodes input output user; do
               mkdir -p "$STATE_DIR/$d"
             done
 
-            echo "Starting ComfyUI container on $LISTEN:$PORT..."
+            echo "Starting ComfyUI container (comfyui:$TAG) on $LISTEN:$PORT..."
 
             exec podman run --rm -it \
               --name comfyui \
@@ -90,7 +98,7 @@
               -v "$STATE_DIR/input:/data/input:rw" \
               -v "$STATE_DIR/output:/data/output:rw" \
               -v "$STATE_DIR/user:/data/user:rw" \
-              comfyui:latest \
+              "comfyui:$TAG" \
               "$@"
           '';
         };
@@ -236,13 +244,16 @@
               STATE_DIR="''${COMFYUI_STATE_DIR:-$FLAKE_DIR/.comfyui-state}"
               PORT="''${COMFYUI_PORT:-8188}"
               LISTEN="''${COMFYUI_LISTEN:-127.0.0.1}"
+              TAG="''${COMFYUI_TAG:-latest}"
 
-              # Build if image doesn't exist
-              if ! podman image exists comfyui:latest 2>/dev/null; then
-                echo "First run: building container image..."
+              # Build if the requested tag doesn't exist
+              if ! podman image exists "comfyui:$TAG" 2>/dev/null; then
+                echo "Image comfyui:$TAG not found; building..."
                 COMMIT=$(python3 -c "import json; d=json.load(open('$FLAKE_DIR/flake.lock')); print(d['nodes']['comfyui-src']['locked']['rev'])")
+                SHORT="''${COMMIT:0:7}"
                 podman build \
                   --build-arg "COMFYUI_COMMIT=$COMMIT" \
+                  -t "comfyui:$SHORT" \
                   -t comfyui:latest \
                   -f "$FLAKE_DIR/Containerfile" \
                   "$FLAKE_DIR"
@@ -252,19 +263,20 @@
                 mkdir -p "$STATE_DIR/$d"
               done
 
-              echo "Starting ComfyUI container on $LISTEN:$PORT..."
+              echo "Starting ComfyUI container (comfyui:$TAG) on $LISTEN:$PORT..."
 
               exec podman run --rm -it \
                 --name comfyui \
                 --device nvidia.com/gpu=all \
                 --security-opt=label=disable \
+                --shm-size=2g \
                 -p "$LISTEN:$PORT:8188" \
                 -v "$STATE_DIR/models:/data/models:ro" \
                 -v "$STATE_DIR/custom_nodes:/data/custom_nodes:ro" \
                 -v "$STATE_DIR/input:/data/input:rw" \
                 -v "$STATE_DIR/output:/data/output:rw" \
                 -v "$STATE_DIR/user:/data/user:rw" \
-                comfyui:latest \
+                "comfyui:$TAG" \
                 "$@"
             '';
           }}/bin/comfyui-app";
@@ -282,8 +294,10 @@
             echo "ComfyUI dev shell"
             echo ""
             echo "  Container (isolated):"
-            echo "    comfyui-container-build — build image"
-            echo "    comfyui-pod             — start"
+            echo "    comfyui-container-build         — build image (tags :latest and :<commit>)"
+            echo "    comfyui-pod                     — start :latest"
+            echo "    COMFYUI_TAG=<tag> comfyui-pod   — roll back to older build"
+            echo "    podman images comfyui           — list available tags"
             echo ""
             echo "  Native (not isolated):"
             echo "    comfyui-native-init     — setup"
