@@ -2,12 +2,13 @@
 
 A Nix Flake for running [ComfyUI](https://github.com/Comfy-Org/ComfyUI) on Linux with direnv support.
 
-ComfyUI Desktop does not ship Linux builds. This flake provides a reproducible, project-local setup using Nix + uv so you can run ComfyUI without polluting your system.
+ComfyUI Desktop does not ship Linux builds. This flake provides a reproducible, project-local setup that runs ComfyUI inside a Podman container, keeping PyPI packages — and any compromised custom nodes — away from your host filesystem.
 
 ## Features
 
-- **Reproducible dependencies** -- `pyproject.toml` + `uv.lock` ensure exact, lockfile-pinned installs via `uv sync`
-- **Separated user data** -- models, custom_nodes, input, output, user live outside the source tree under `.comfyui-state/`, so updates are a simple source replacement
+- **Container-isolated execution** -- ComfyUI and its PyPI dependencies run inside a Podman container with no access to your SSH keys, cloud credentials, or other host secrets
+- **Reproducible by commit** -- the ComfyUI revision is pinned in `flake.lock`; every container build is tagged by that commit so upgrades can be rolled back instantly
+- **Separated user data** -- models, custom_nodes, input, output, user live on the host under `.comfyui-state/` and are mounted into the container (models read-only)
 - **direnv-friendly** -- drop an `.envrc` with `use flake` and everything is ready
 - **ComfyUI Manager** enabled by default
 
@@ -23,7 +24,7 @@ ComfyUI Desktop does not ship Linux builds. This flake provides a reproducible, 
 
 ## Quick Start
 
-The fastest way -- one command to initialize and launch:
+The fastest way -- one command to build and launch:
 
 ```bash
 git clone https://github.com/vmemjp/comfyui-flake
@@ -31,7 +32,7 @@ cd comfyui-flake
 nix run .
 ```
 
-On the first run, this automatically sets up the venv via `uv sync`, installs dependencies, and starts ComfyUI.
+On the first run, this automatically builds the Podman container image (installing all dependencies inside the container) and starts ComfyUI.
 
 ### Using a dev shell (alternative)
 
@@ -53,8 +54,6 @@ ComfyUI starts at `http://127.0.0.1:8188` by default.
 | `nix run .` | One-command bootstrap: build image if missing, then start the container |
 | `comfyui-container-build` | Build the Podman container image; tags `:latest` and `:<commit-short>` (dev shell) |
 | `comfyui-pod` | Start ComfyUI in an isolated Podman container (dev shell) |
-| `comfyui-native-init` | First-time setup for non-container mode: copy source, link data dirs, `uv sync` (dev shell) |
-| `comfyui-native` | Start ComfyUI without container isolation — PyPI packages run on the host (dev shell) |
 
 ## Container Mode (Podman)
 
@@ -79,13 +78,12 @@ Each container build is tagged with both `:latest` and `:<commit-short>` (the fi
 # 1. Update the flake input to the latest ComfyUI commit
 nix flake update comfyui-src
 
-# 2. Sync dependency changes from upstream requirements.txt
-./sync-requirements.sh
-
-# 3. Rebuild the container (tags both :latest and :<new-commit>)
+# 2. Rebuild the container (tags both :latest and :<new-commit>)
+#    The build clones ComfyUI at the new commit inside the container
+#    and installs its requirements.txt directly — no host-side sync needed.
 comfyui-container-build
 
-# 4. Start the new version
+# 3. Start the new version
 comfyui-pod
 ```
 
@@ -116,7 +114,7 @@ podman rmi comfyui:bbfbe3f   # remove once you're sure you don't need it
 ### Recommended upgrade flow
 
 1. **Note the current tag** before upgrading: `podman images comfyui`
-2. **Upgrade and rebuild**: run the 4-step flow above
+2. **Upgrade and rebuild**: run the steps above
 3. **Smoke-test** your critical workflows against the new build
 4. **If something breaks**: `COMFYUI_TAG=<old-tag> comfyui-pod` to roll back, then investigate at your leisure
 5. **After a stable period**: `podman rmi comfyui:<old-tag>` to reclaim disk space
@@ -128,8 +126,8 @@ All configuration is done via environment variables. Set them before running `co
 ### Network
 
 ```bash
-COMFYUI_LISTEN=0.0.0.0 comfyui    # Listen on all interfaces
-COMFYUI_PORT=9000 comfyui          # Use a different port
+COMFYUI_LISTEN=0.0.0.0 comfyui-pod   # Listen on all interfaces
+COMFYUI_PORT=9000 comfyui-pod        # Use a different port
 ```
 
 ### All Variables
@@ -140,8 +138,6 @@ COMFYUI_PORT=9000 comfyui          # Use a different port
 | `COMFYUI_LISTEN` | `127.0.0.1` | Listen address |
 | `COMFYUI_PORT` | `8188` | Listen port |
 | `COMFYUI_TAG` | `latest` | Container image tag to run (for rollback to a previous build) |
-| `COMFYUI_HOME` | `$STATE_DIR/src` | ComfyUI source directory (native mode only) |
-| `COMFYUI_ENABLE_MANAGER` | `1` | Enable ComfyUI Manager (`0` to disable) |
 
 ## Downloading Models
 
@@ -155,25 +151,18 @@ aria2c -x 16 -s 16 -d .comfyui-state/models/checkpoints/ <URL>
 
 ```
 .
-├── pyproject.toml          # Dependency management
-├── uv.lock                 # Lockfile (committed)
-├── flake.nix
-├── flake.lock
-└── .comfyui-state/         # Created on first run (gitignored)
-    ├── src/                # ComfyUI source (replaced on update)
-    │   ├── custom_nodes/ → ../custom_nodes  (symlink)
-    │   ├── input/ → ../input                (symlink)
-    │   ├── output/ → ../output              (symlink)
-    │   ├── user/ → ../user                  (symlink)
-    │   └── models/ → ../models              (symlink)
-    ├── models/             # Model files
-    ├── custom_nodes/       # Custom node extensions
-    ├── input/              # Input images
-    ├── output/             # Generated outputs
-    └── user/               # User settings
+├── flake.nix               # Dev shell + comfyui-pod / comfyui-container-build
+├── flake.lock              # Pins the ComfyUI revision (source of truth for rebuilds)
+├── Containerfile           # Clones ComfyUI and installs its requirements.txt inside the image
+└── .comfyui-state/         # User data, mounted into the container (gitignored)
+    ├── models/             # Model files (mounted read-only)
+    ├── custom_nodes/       # Custom node extensions (mounted read-only)
+    ├── input/              # Input images (read-write)
+    ├── output/             # Generated outputs (read-write)
+    └── user/               # User settings (read-write)
 ```
 
-All user data directories are symlinked from the source tree into `.comfyui-state/`.
+No ComfyUI source lives on the host — it is cloned at the pinned commit inside the container during `comfyui-container-build`.
 
 ## License
 

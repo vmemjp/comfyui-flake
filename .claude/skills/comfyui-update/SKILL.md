@@ -52,29 +52,32 @@ Otherwise, ask **once**: "適用する?" and wait. Do NOT ask multiple questions
 
 ### 4. Apply
 
-Run these sequentially in `/srv/ssd1tb/work/comfyui`:
+Run in `/srv/ssd1tb/work/comfyui`:
 
 ```bash
-./sync-requirements.sh
-./sync-requirements.sh --manager
 comfyui-container-build
 ```
 
-Note: `sync-requirements.sh` uses `--no-sync` so it only updates pyproject.toml + uv.lock metadata without installing on the host. The actual installation happens inside `comfyui-container-build`.
+The container build reads the new commit from `flake.lock`, clones that
+exact ComfyUI revision inside the container, and installs upstream
+`requirements.txt` directly — no host-side sync step needed.
+
+The build tags both `:latest` and `:<new-commit-short>`, and the previous
+build remains available under its own `:<old-commit-short>` tag for
+rollback via `COMFYUI_TAG=<old-tag> comfyui-pod`.
 
 ### 5. Commit
 
 ```bash
-git add flake.lock pyproject.toml uv.lock
+git add flake.lock
 ```
 
 Commit message format — use the latest tag if available (e.g., `v0.17.1`), otherwise use the date:
 ```
-Update ComfyUI to vX.Y.Z and sync dependencies
+Update ComfyUI to vX.Y.Z
 
 - key change 1
 - key change 2
-- dependency changes summary
 
 Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
 ```

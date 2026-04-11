@@ -16,20 +16,25 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 # Let uv manage Python 3.13
 RUN uv python install 3.13
 
-# Project files for dependency installation
 WORKDIR /app
-COPY pyproject.toml uv.lock ./
 
-# Install Python dependencies (locked, PyTorch cu130 wheels include CUDA runtime)
-RUN uv sync --frozen --python 3.13 --extra manager
-
-# Clone ComfyUI source at pinned commit
+# Clone ComfyUI source at the pinned commit
 RUN git clone --depth 1 https://github.com/Comfy-Org/ComfyUI.git /app/src \
     && cd /app/src \
     && if [ -n "$COMFYUI_COMMIT" ]; then \
          git fetch origin "$COMFYUI_COMMIT" --depth 1 \
          && git checkout "$COMFYUI_COMMIT"; \
        fi
+
+# Create venv and install dependencies directly from upstream requirements.txt.
+# --extra-index-url picks up torch/torchvision/torchaudio wheels (with bundled CUDA)
+# from PyTorch's cu130 index; everything else comes from default PyPI.
+RUN uv venv /app/.venv --python 3.13 \
+    && uv pip install --python /app/.venv/bin/python \
+         --extra-index-url https://download.pytorch.org/whl/cu130 \
+         -r /app/src/requirements.txt \
+    && uv pip install --python /app/.venv/bin/python \
+         comfyui-manager==4.1
 
 # Remove default data dirs (will be mounted from host)
 RUN rm -rf /app/src/models /app/src/custom_nodes /app/src/input /app/src/output /app/src/user
