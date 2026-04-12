@@ -69,14 +69,15 @@
               mkdir -p "$STATE_DIR/$d"
             done
 
-            EXTRA_ARGS=()
-            if [ "$NETWORK" = "none" ]; then
-              EXTRA_ARGS+=("--network=none")
-              echo "NOTE: COMFYUI_NETWORK=none — container has no network."
-              echo "      Port mapping is disabled; the ComfyUI UI will NOT be reachable from the host."
-              echo "      Use this for paranoid smoke-tests of unvetted custom nodes."
-            else
-              EXTRA_ARGS+=("-p" "$LISTEN:$PORT:8188")
+            EXTRA_ARGS=("-p" "$LISTEN:$PORT:8188")
+            if [ "$NETWORK" = "blocked" ]; then
+              EXTRA_ARGS+=("--cap-add=NET_ADMIN" "--env" "COMFYUI_EGRESS=block")
+              echo "NOTE: COMFYUI_NETWORK=blocked — outbound connections are blocked."
+              echo "      Host API/UI access still works at $LISTEN:$PORT."
+            elif [ "$NETWORK" = "none" ]; then
+              EXTRA_ARGS=("--network=none")
+              echo "NOTE: COMFYUI_NETWORK=none — no network at all."
+              echo "      Port mapping disabled; access via 'podman exec' only."
             fi
 
             echo "Starting ComfyUI container (comfyui:$TAG) on $LISTEN:$PORT..."
@@ -167,11 +168,12 @@
             export FLAKE_DIR="$PWD"
             echo "ComfyUI dev shell"
             echo ""
-            echo "  comfyui-container-build             — build image (tags :latest and :<commit>)"
-            echo "  comfyui-pod                         — start :latest"
-            echo "  COMFYUI_TAG=<tag> comfyui-pod       — roll back to an older build"
-            echo "  COMFYUI_NETWORK=none comfyui-pod    — start offline (no network, no UI port)"
-            echo "  podman images comfyui               — list available tags"
+            echo "  comfyui-container-build                 — build image (tags :latest and :<commit>)"
+            echo "  comfyui-pod                             — start :latest"
+            echo "  COMFYUI_TAG=<tag> comfyui-pod           — roll back to an older build"
+            echo "  COMFYUI_NETWORK=blocked comfyui-pod     — block outbound, keep UI/API"
+            echo "  COMFYUI_NETWORK=none comfyui-pod        — no network at all (podman exec only)"
+            echo "  podman images comfyui                   — list available tags"
           '';
         };
       });

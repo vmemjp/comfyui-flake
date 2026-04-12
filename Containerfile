@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates git ffmpeg aria2 curl \
     cmake ninja-build pkg-config gcc g++ \
     libgl1-mesa-dev libglib2.0-0 libssl-dev libffi-dev zlib1g-dev \
+    iptables \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv — pinned to version tag + SHA256 digest
@@ -60,7 +61,13 @@ RUN ln -s /data/models       /app/src/models \
 
 WORKDIR /app/src
 
+# Entrypoint wrapper: when COMFYUI_EGRESS=block is set (via podman --env),
+# iptables drops all container-initiated outbound traffic while still allowing
+# responses to inbound connections (host API/UI access).
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 EXPOSE 8188
 
-ENTRYPOINT ["/app/.venv/bin/python", "main.py", "--listen", "0.0.0.0"]
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["--port", "8188"]

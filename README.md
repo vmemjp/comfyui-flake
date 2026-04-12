@@ -138,7 +138,7 @@ COMFYUI_PORT=9000 comfyui-pod        # Use a different port
 | `COMFYUI_LISTEN` | `127.0.0.1` | Listen address |
 | `COMFYUI_PORT` | `8188` | Listen port |
 | `COMFYUI_TAG` | `latest` | Container image tag to run (for rollback to a previous build) |
-| `COMFYUI_NETWORK` | `default` | Set to `none` to run with `--network=none` (offline; disables port mapping, so the UI is not reachable from the host — intended for paranoid smoke-tests of unvetted custom nodes) |
+| `COMFYUI_NETWORK` | `default` | `blocked` = outbound traffic dropped via iptables, host API/UI still works (recommended for untrusted custom nodes); `none` = `--network=none`, no connectivity at all (podman exec only) |
 
 ## Downloading Models
 
